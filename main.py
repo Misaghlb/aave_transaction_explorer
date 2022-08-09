@@ -45,13 +45,13 @@ def get_chain_info(chain_name: Chain):
                 ]
     if chain_name == Chain.Polygon_v3:
         return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-polygon-extended',
-                'https://etherscan.io/address/',
-                'https://etherscan.io/tx/'
+                'https://polygonscan.com/address/',
+                'https://polygonscan.com/tx/'
                 ]
     if chain_name == Chain.Polygon_V2:
         return ['https://api.thegraph.com/subgraphs/name/messari/aave-v2-polygon-extended',
-                'https://etherscan.io/address/',
-                'https://etherscan.io/tx/'
+                'https://polygonscan.com/address/',
+                'https://polygonscan.com/tx/'
                 ]
     if chain_name == Chain.Harmony:
         return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-harmony-extended',
@@ -90,16 +90,15 @@ def humanized_time(ts_start):
     return answer2 + ' ago'
 
 
-# @st.cache(ttl=6 * 60 * 60)  # 6 hours
 def fetch_data(chain: Chain, tr_hash):
     payload = {
-        "query": "{ withdraws(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} } }" % (
+        "query": "{ withdraws(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 10, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }" % (
             tr_hash, tr_hash, tr_hash, tr_hash, tr_hash),
     }
     res = requests.post(url=get_chain_info(chain)[0],
                         json=payload).json()['data']
     if res:
-        actions = clean_data(res)
+        actions = clean_data(res, chain)
     else:
         return False
 
@@ -118,7 +117,7 @@ def get_explorer_transaction_address(transaction_address: str, chain):
     return get_chain_info(chain)[2] + transaction_address
 
 
-def clean_data(res):
+def clean_data(res, chain):
     actions = []
     for item in ['withdraws', 'deposits', 'borrows', 'repays', 'liquidates']:
         if not res[item]:
@@ -126,24 +125,28 @@ def clean_data(res):
         action_content_list = res[item]
         for action in action_content_list:
             clean_action = {}
-            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC")).strftime(
+            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp']), ).strftime(
                 "%m/%d/%Y, %H:%M:%S")
             clean_action['py_date'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC"))
             clean_action['Type'] = get_type_name(item)
             clean_action['Asset Symbol'] = action['asset']['symbol']
             clean_action['transaction_hash'] = action['hash']
             clean_action['Asset ID'] = action['asset']['id']
-            clean_action['Asset Amount'] = int(int(action['amount']) / pow(10, int(action['asset']['decimals'])))
+            clean_action['Asset Amount'] = float(int(action['amount']) / pow(10, int(action['asset']['decimals'])))
             clean_action['Amount USD'] = action['amountUSD']
             clean_action['user'] = action['account']['id']
+            clean_action['logIndex'] = action['logIndex']
+            clean_action['chain'] = chain.value
             actions.append(clean_action)
     return actions
+
 
 
 ex = st.expander('About')
 ex.title('How it works')
 ex.markdown(
     "If a hash address is entered, the app will search for the transaction data on thegraph.com (Messari) chain data across all chains supported by Aave.  \n"
+    "by this approach we have the most recent transactions as soon as they occure, the thing that is not exist on Dune and Flipside(about one day delay)  \n"
     "**Chains**: Ethereum, Polygon(v2,v3), Avalanche(v2,v3), Optimism, Arbitrum, Harmony, Fantom  \n"
     "**Transaction Types**: Deposit, Withdraw, Borrow, Repay")
 
@@ -156,30 +159,27 @@ input_hash = c2.text_input('Enter Transaction Hash:',
 
 data = ''
 selected_chain = ''
-for chain in Chain:
-    data = fetch_data(chain, input_hash)
+for chain_item in Chain:
+    data = fetch_data(chain_item, input_hash)
     # find the right data so exit and don't search in next chains
     if data:
-        selected_chain = chain
+        selected_chain = chain_item
         break
 if not data:
     st.warning('Hash Address is not valid!')
 else:
     df = pd.DataFrame(
         data,
-        columns=["Time", "Type", "Asset Symbol", "Asset Amount", "Amount USD", "Asset ID"])
+        columns=["Time", "Type", "Asset Symbol", "Asset Amount", "Amount USD", "Asset ID", "user",
+                 "logIndex"]).sort_values('logIndex')
     st.markdown('---')
 
     c1, c2 = st.columns(2)
-    c1.write('#### User: ')
+    c1.markdown('#### Transaction Hash: ')
     c1.markdown(
-        f"<a style='text-decoration: none;' href='{get_explorer_user_address(data[0]['user'], selected_chain)}'>{data[0]['user']}</a>",
-        unsafe_allow_html=True)
-    c2.markdown('#### Transaction Hash: ')
-    c2.markdown(
         f"<a style='text-decoration: none;' href='{get_explorer_transaction_address(data[0]['transaction_hash'], selected_chain)}'>{data[0]['transaction_hash']}</a>",
         unsafe_allow_html=True)
-    c1.markdown(
+    c2.markdown(
         f'<span style="font-family:sans-serif; color:grey; font-size: 18px;">Timestamp (UTC): </span><span style="font-family:sans-serif; color:purple; font-size: 16px;">{humanized_time(data[0]["py_date"])}</span>',
         unsafe_allow_html=True)
     c2.markdown(
@@ -189,6 +189,46 @@ else:
     st.table(df)
 
 
+# lastest transactions
+def create_latest():
+    def fetch_latest_transactions(chain: Chain):
+        payload = {
+            "query": "{ withdraws(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }",
+        }
+        res = requests.post(url=get_chain_info(chain)[0],
+                            json=payload).json()['data']
+        if res:
+            actions = clean_data(res, chain)
+        else:
+            return False
+
+        return actions
+
+    latest_data = []
+    for chain_item in Chain:
+        latest_data.extend(fetch_latest_transactions(chain_item))
+    if not latest_data:
+        st.warning('Error!')
+    else:
+        latest_df = pd.DataFrame(
+            latest_data,
+            columns=["Time", "transaction_hash", "Type", "Asset Symbol", "Asset Amount", "Amount USD", "chain",
+                     "logIndex"])
+
+        latest_df = latest_df.sort_values('Time', ascending=False)
+        return latest_df
+
+
+st.write('')
+st.write('')
+st.title('lastest transactions')
+
+if 'latest_df' not in st.session_state:
+    latest_df = create_latest()
+    st.session_state.latest_df = latest_df
+st.table(st.session_state.latest_df.head(10))
+
+# end latest
 st.write('')
 st.write('')
 st.write('')
