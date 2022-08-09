@@ -22,33 +22,52 @@ class Chain(Enum):
     Fantom = 'Fantom'
 
 
-def get_chain_addresses(chain_name: Chain):
+def get_chain_info(chain_name: Chain):
     if chain_name == Chain.Avalanche_v2:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v2-avalanche-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v2-avalanche-extended',
+                'https://snowtrace.io/address/',
+                'https://snowtrace.io/tx/'
+                ]
     if chain_name == Chain.Avalanche_v3:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-avalanche'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-avalanche',
+                'https://snowtrace.io/address/',
+                'https://snowtrace.io/tx/'
+                ]
     if chain_name == Chain.Ethereum:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v2-ethereum-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v2-ethereum-extended',
+                'https://etherscan.io/address/',
+                'https://etherscan.io/tx/'
+                ]
     if chain_name == Chain.Optimism:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-optimism-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-optimism-extended',
+                'https://optimistic.etherscan.io/address/',
+                'https://optimistic.etherscan.io/tx/'
+                ]
     if chain_name == Chain.Polygon_v3:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-polygon-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-polygon-extended',
+                'https://etherscan.io/address/',
+                'https://etherscan.io/tx/'
+                ]
     if chain_name == Chain.Polygon_V2:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v2-polygon-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v2-polygon-extended',
+                'https://etherscan.io/address/',
+                'https://etherscan.io/tx/'
+                ]
     if chain_name == Chain.Harmony:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-harmony-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-harmony-extended',
+                'https://explorer.harmony.one/address/',
+                'https://explorer.harmony.one/tx/'
+                ]
     if chain_name == Chain.Fantom:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-fantom-extended'
-
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-fantom-extended',
+                'https://ftmscan.com/address/',
+                'https://ftmscan.com/tx/'
+                ]
     if chain_name == Chain.Arbitrum:
-        return 'https://api.thegraph.com/subgraphs/name/messari/aave-v3-arbitrum-extended'
+        return ['https://api.thegraph.com/subgraphs/name/messari/aave-v3-arbitrum-extended',
+                'https://arbiscan.io/address/',
+                'https://arbiscan.io/tx/'
+                ]
 
 
 def humanized_time(ts_start):
@@ -77,7 +96,7 @@ def fetch_data(chain: Chain, tr_hash):
         "query": "{ withdraws(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 1, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} } }" % (
             tr_hash, tr_hash, tr_hash, tr_hash, tr_hash),
     }
-    res = requests.post(url=get_chain_addresses(chain),
+    res = requests.post(url=get_chain_info(chain)[0],
                         json=payload).json()['data']
     if res:
         actions = clean_data(res)
@@ -91,6 +110,14 @@ def get_type_name(item: str):
     return item[:-1].capitalize()
 
 
+def get_explorer_user_address(user_address: str, chain):
+    return str(get_chain_info(chain)[1] + user_address)
+
+
+def get_explorer_transaction_address(transaction_address: str, chain):
+    return get_chain_info(chain)[2] + transaction_address
+
+
 def clean_data(res):
     actions = []
     for item in ['withdraws', 'deposits', 'borrows', 'repays', 'liquidates']:
@@ -99,7 +126,8 @@ def clean_data(res):
         action_content_list = res[item]
         for action in action_content_list:
             clean_action = {}
-            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC")).strftime("%m/%d/%Y, %H:%M:%S")
+            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC")).strftime(
+                "%m/%d/%Y, %H:%M:%S")
             clean_action['py_date'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC"))
             clean_action['Type'] = get_type_name(item)
             clean_action['Asset Symbol'] = action['asset']['symbol']
@@ -114,9 +142,10 @@ def clean_data(res):
 
 ex = st.expander('About')
 ex.title('How it works')
-ex.markdown("If a hash address is entered, the app will search for the transaction data on thegraph.com (Messari) chain data across all chains supported by Aave.  \n"
-            "**Chains**: Ethereum, Polygon(v2,v3), Avalanche(v2,v3), Optimism, Arbitrum, Harmony, Fantom  \n"
-            "**Transaction Types**: Deposit, Withdraw, Borrow, Repay")
+ex.markdown(
+    "If a hash address is entered, the app will search for the transaction data on thegraph.com (Messari) chain data across all chains supported by Aave.  \n"
+    "**Chains**: Ethereum, Polygon(v2,v3), Avalanche(v2,v3), Optimism, Arbitrum, Harmony, Fantom  \n"
+    "**Transaction Types**: Deposit, Withdraw, Borrow, Repay")
 
 st.markdown('---')
 c1, c2, c3 = st.columns((1, 2, 1))
@@ -144,11 +173,11 @@ else:
     c1, c2 = st.columns(2)
     c1.write('#### User: ')
     c1.markdown(
-        f"<a style='text-decoration: none;' href='https://etherscan.io/address/{data[0]['user']}'>{data[0]['user']}</a>",
+        f"<a style='text-decoration: none;' href='{get_explorer_user_address(data[0]['user'], selected_chain)}'>{data[0]['user']}</a>",
         unsafe_allow_html=True)
     c2.markdown('#### Transaction Hash: ')
     c2.markdown(
-        f"<a style='text-decoration: none;' href='https://etherscan.io/tx/{data[0]['transaction_hash']}'>{data[0]['transaction_hash']}</a>",
+        f"<a style='text-decoration: none;' href='{get_explorer_transaction_address(data[0]['transaction_hash'], selected_chain)}'>{data[0]['transaction_hash']}</a>",
         unsafe_allow_html=True)
     c1.markdown(
         f'<span style="font-family:sans-serif; color:grey; font-size: 18px;">Timestamp (UTC): </span><span style="font-family:sans-serif; color:purple; font-size: 16px;">{humanized_time(data[0]["py_date"])}</span>',
@@ -158,3 +187,21 @@ else:
         unsafe_allow_html=True)
     st.markdown('#### Actions: ')
     st.table(df)
+
+
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.write('')
+st.markdown("---")
+st.markdown("##### Contact:\n"
+            "- developed by Misagh lotfi \n"
+            "- https://twitter.com/misaghlb \n"
+            "- misaghlb@live.com\n"
+            "- https://www.linkedin.com/in/misagh-lotfi/\n"
+            )
