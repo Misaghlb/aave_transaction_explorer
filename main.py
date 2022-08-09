@@ -99,7 +99,7 @@ def clean_data(res):
         action_content_list = res[item]
         for action in action_content_list:
             clean_action = {}
-            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp'])).strftime("%m/%d/%Y, %H:%M:%S")
+            clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC")).strftime("%m/%d/%Y, %H:%M:%S")
             clean_action['py_date'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC"))
             clean_action['Type'] = get_type_name(item)
             clean_action['Asset Symbol'] = action['asset']['symbol']
