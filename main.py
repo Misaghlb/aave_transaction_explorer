@@ -7,7 +7,7 @@ import requests
 import streamlit as st
 
 st.set_page_config(page_title='Aave Explorer', layout='wide', page_icon=':explorer:')
-st.title("Aave v2 and v3 Transaction Explorer - All chains in one")
+st.title("Aave v2, v3 Transaction Explorer - All chains in one")
 
 
 class Chain(Enum):
@@ -79,13 +79,16 @@ def fetch_data(chain: Chain, tr_hash):
     }
     res = requests.post(url=get_chain_addresses(chain),
                         json=payload).json()['data']
-
     if res:
         actions = clean_data(res)
     else:
         return False
 
     return actions
+
+
+def get_type_name(item: str):
+    return item[:-1].capitalize()
 
 
 def clean_data(res):
@@ -98,17 +101,22 @@ def clean_data(res):
             clean_action = {}
             clean_action['Time'] = datetime.fromtimestamp(int(action['timestamp'])).strftime("%m/%d/%Y, %H:%M:%S")
             clean_action['py_date'] = datetime.fromtimestamp(int(action['timestamp']), pytz.timezone("UTC"))
-            clean_action['Type'] = item
+            clean_action['Type'] = get_type_name(item)
             clean_action['Asset Symbol'] = action['asset']['symbol']
             clean_action['transaction_hash'] = action['hash']
             clean_action['Asset ID'] = action['asset']['id']
             clean_action['Asset Amount'] = int(int(action['amount']) / pow(10, int(action['asset']['decimals'])))
             clean_action['Amount USD'] = action['amountUSD']
             clean_action['user'] = action['account']['id']
-            # clean_action['chain'] = action['chain']
             actions.append(clean_action)
     return actions
 
+
+ex = st.expander('About')
+ex.title('How it works')
+ex.markdown("If a hash address is entered, the app will search for the transaction data on thegraph.com (Messari) chain data across all chains supported by Aave.  \n"
+            "**Chains**: Ethereum, Polygon(v2,v3), Avalanche(v2,v3), Optimism, Arbitrum, Harmony, Fantom  \n"
+            "**Transaction Types**: Deposit, Withdraw, Borrow, Repay")
 
 st.markdown('---')
 c1, c2, c3 = st.columns((1, 2, 1))
@@ -125,26 +133,28 @@ for chain in Chain:
     if data:
         selected_chain = chain
         break
+if not data:
+    st.warning('Hash Address is not valid!')
+else:
+    df = pd.DataFrame(
+        data,
+        columns=["Time", "Type", "Asset Symbol", "Asset Amount", "Amount USD", "Asset ID"])
+    st.markdown('---')
 
-df = pd.DataFrame(
-    data,
-    columns=["Time", "Type", "Asset Symbol", "Asset Amount", "Amount USD", "Asset ID"])
-st.markdown('---')
-
-c1, c2 = st.columns(2)
-c1.write('#### User: ')
-c1.markdown(
-    f"<a style='text-decoration: none;' href='https://etherscan.io/address/{data[0]['user']}'>{data[0]['user']}</a>",
-    unsafe_allow_html=True)
-c2.markdown('#### Transaction Hash: ')
-c2.markdown(
-    f"<a style='text-decoration: none;' href='https://etherscan.io/tx/{data[0]['transaction_hash']}'>{data[0]['transaction_hash']}</a>",
-    unsafe_allow_html=True)
-c1.markdown(
-    f'<span style="font-family:sans-serif; color:grey; font-size: 18px;">Timestamp (UTC): </span><span style="font-family:sans-serif; color:purple; font-size: 16px;">{humanized_time(data[0]["py_date"])}</span>',
-    unsafe_allow_html=True)
-c2.markdown(
-    f'<span style="font-family:sans-serif; color:grey; font-size: 22px;">Chain: </span><span style="font-family:sans-serif; color:purple; font-size: 20px;">{selected_chain.value}</span>',
-    unsafe_allow_html=True)
-st.markdown('#### Actions: ')
-st.table(df)
+    c1, c2 = st.columns(2)
+    c1.write('#### User: ')
+    c1.markdown(
+        f"<a style='text-decoration: none;' href='https://etherscan.io/address/{data[0]['user']}'>{data[0]['user']}</a>",
+        unsafe_allow_html=True)
+    c2.markdown('#### Transaction Hash: ')
+    c2.markdown(
+        f"<a style='text-decoration: none;' href='https://etherscan.io/tx/{data[0]['transaction_hash']}'>{data[0]['transaction_hash']}</a>",
+        unsafe_allow_html=True)
+    c1.markdown(
+        f'<span style="font-family:sans-serif; color:grey; font-size: 18px;">Timestamp (UTC): </span><span style="font-family:sans-serif; color:purple; font-size: 16px;">{humanized_time(data[0]["py_date"])}</span>',
+        unsafe_allow_html=True)
+    c2.markdown(
+        f'<span style="font-family:sans-serif; color:grey; font-size: 22px;">Chain: </span><span style="font-family:sans-serif; color:purple; font-size: 20px;">{selected_chain.value}</span>',
+        unsafe_allow_html=True)
+    st.markdown('#### Actions: ')
+    st.table(df)
