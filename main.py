@@ -102,7 +102,6 @@ def fetch_data(chain: Chain, tr_hash):
     }
     res = requests.post(url=get_chain_info(chain)[0],
                         json=payload).json()['data']
-    st.write(res)
     if res:
         actions = clean_data(res, chain)
     else:
