@@ -119,7 +119,7 @@ def get_explorer_transaction_address(transaction_address: str, chain):
 
 def clean_data(res, chain):
     actions = []
-    for item in ['withdraws', 'deposits', 'borrows', 'repays', 'liquidates']:
+    for item in ['withdraws', 'deposits', 'borrows', 'repays', ]:
         if not res[item]:
             continue
         action_content_list = res[item]
@@ -139,7 +139,6 @@ def clean_data(res, chain):
             clean_action['chain'] = chain.value
             actions.append(clean_action)
     return actions
-
 
 
 ex = st.expander('About')
@@ -193,7 +192,12 @@ else:
 def create_latest():
     def fetch_latest_transactions(chain: Chain):
         payload = {
-            "query": "{ withdraws(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 1, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }",
+            "query": """{ 
+            withdraws(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }
+                deposits(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+                borrows(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+                repays(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }
+                 liquidates(first: 10, orderBy: blockNumber, orderDirection: desc, where:{timestamp_gte: 1659815794}){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }""",
         }
         res = requests.post(url=get_chain_info(chain)[0],
                             json=payload).json()['data']
