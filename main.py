@@ -235,7 +235,7 @@ st.title('lastest transactions')
 if 'latest_df' not in st.session_state:
     latest_df = create_latest()
     st.session_state.latest_df = latest_df
-st.table(st.session_state.latest_df.head(10))
+st.table(st.session_state.latest_df.head(20))
 
 # end latest
 st.write('')
