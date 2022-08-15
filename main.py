@@ -92,11 +92,17 @@ def humanized_time(ts_start):
 
 def fetch_data(chain: Chain, tr_hash):
     payload = {
-        "query": "{ withdraws(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } }  deposits(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } borrows(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } repays(first: 10, where: { hash: \"%s\" }){ id hash timestamp amount amountUSD asset {symbol decimals id} account { id } } liquidates(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }" % (
+        "query": """{ 
+        withdraws(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+        deposits(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+        borrows(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+        repays(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} account { id } } 
+        liquidates(first: 10, where: { hash: \"%s\" }){ id hash logIndex timestamp amount amountUSD asset {symbol decimals id} } }""" % (
             tr_hash, tr_hash, tr_hash, tr_hash, tr_hash),
     }
     res = requests.post(url=get_chain_info(chain)[0],
                         json=payload).json()['data']
+    st.write(res)
     if res:
         actions = clean_data(res, chain)
     else:
